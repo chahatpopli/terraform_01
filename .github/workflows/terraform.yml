@@ -1,11 +1,12 @@
 name: 'Terraform'
 
 on:
+  push:
+    branches:
+      - main
   pull_request:
-    branches: [ "main" ]
-
-permissions:
-  contents: read
+    branches:
+      - main
 
 jobs:
   thank-user:
@@ -26,9 +27,8 @@ jobs:
             https://api.github.com/repos/$REPO/issues/$PR_NUMBER/comments \
             -d "{\"body\": \"$message\"}"
   build:
-    name: 'Terraform'
+    name: 'Terraform Init, Fmt, and Plan'
     runs-on: ubuntu-latest
-    environment: production
 
     # Use the Bash shell regardless whether the GitHub Actions runner is ubuntu-latest, macos-latest, or windows-latest
     defaults:
@@ -36,45 +36,27 @@ jobs:
         shell: bash
 
     steps:
-    # Checkout the repository to the GitHub Actions runner
     - name: Checkout
       uses: actions/checkout@v4
 
-    # Install the latest version of Terraform CLI and configure the Terraform CLI configuration file with a Terraform Cloud user API token
     - name: Setup Terraform
       uses: hashicorp/setup-terraform@v1
       
-    # - name: Azure Login
-    #   uses: Azure/login@v2.2.0
-    #   with:
-    #       # Paste output of `az ad sp create-for-rbac` as value of secret variable: AZURE_CREDENTIALS
-    #       creds: # optional
-    #       # ClientId of the Azure Service principal created.
-    #       client-id: # optional
-    #       # TenantId of the Azure Service principal created.
-    #       tenant-id: # optional
-    #       # Azure subscriptionId
-    #       subscription-id: # optional
-    #       # Set this value to true to enable Azure PowerShell Login in addition to Azure CLI login
-    #       enable-AzPSSession: # optional
-    #       # Name of the environment. Supported values are azurecloud, azurestack, azureusgovernment, azurechinacloud, azuregermancloud. Default being azurecloud
-    #       environment: # optional, default is azurecloud
-    #       # Set this value to true to enable support for accessing tenants without subscriptions
-    #       allow-no-subscriptions: # optional
-    #       # Provide audience field for access-token. Default value is api://AzureADTokenExchange
-    #       audience: # optional, default is api://AzureADTokenExchange
-    #       # The type of authentication. Supported values are SERVICE_PRINCIPAL, IDENTITY. Default value is SERVICE_PRINCIPAL
-    #       auth-type: # optional, default is SERVICE_PRINCIPAL
+    - name: Azure Login
+      uses: Azure/login@v2.2.0
+      with:
+          creds: '${{ secrets.AZURE_CREDENTIALS }}'
           
-
-    # Initialize a new or existing Terraform working directory by creating initial files, loading any remote state, downloading modules, etc.
     - name: Terraform Init
       run: terraform init
 
-    # Checks that all Terraform configuration files adhere to a canonical format
-    - name: Terraform Format
+    - name: Terraform Format check
       run: terraform fmt --recursive
 
-    # Generates an execution plan for Terraform
-    # - name: Terraform Plan
-    #   run: terraform plan -input=false
+    - name: Terraform Plan
+      run: terraform plan -input=false
+      env:
+          ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+          ARM_CLIENT_SECRET: ${{ secrets.AZURE_CLIENT_SECRET }}
+          ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
